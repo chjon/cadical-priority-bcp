@@ -23,6 +23,7 @@ OPTION( arena,             1,  0,  1,0,0,1, "allocate clauses in arena") \
 OPTION( arenacompact,      1,  0,  1,0,0,1, "keep clauses compact") \
 OPTION( arenasort,         1,  0,  1,0,0,1, "sort clauses in arena") \
 OPTION( arenatype,         3,  1,  3,0,0,1, "1=clause, 2=var, 3=queue") \
+OPTION( bcpmode,           0,  0,  2,0,0,1, "0=immediate, 1=delayed, 2=outoforder") \
 OPTION( binary,            1,  0,  1,0,0,1, "use binary proof format") \
 OPTION( block,             0,  0,  1,0,1,1, "blocked clause elimination") \
 OPTION( blockmaxclslim,  1e5,  1,2e9,2,0,1, "maximum clause size") \

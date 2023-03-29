@@ -328,6 +328,20 @@ void Internal::compact () {
     vals = new_vals;
   }
 
+  { // Unclear whether this is necessary
+    signed char * new_vals = new signed char [ 2*mapper.new_vsize ];
+    ignore_clang_analyze_memory_leak_warning = new_vals;
+    new_vals += mapper.new_vsize;
+    for (auto src : vars)
+      new_vals[-mapper.map_idx (src)] = vals_bcp[-src];
+    for (auto src : vars)
+      new_vals[mapper.map_idx (src)] = vals_bcp[src];
+    new_vals[0] = 0;
+    vals_bcp -= vsize;
+    delete [] vals_bcp;
+    vals_bcp = new_vals;
+  }
+
   // 'constrain' uses 'val', so this code has to be after remapping that
   if (is_constraint) {
     assert (!level);

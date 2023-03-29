@@ -22,8 +22,10 @@ Internal::Internal ()
   max_var (0),
   level (0),
   vals (0),
+  vals_bcp (0),
   score_inc (1.0),
   scores (this),
+  scores_bcp (this),
   conflict (0),
   ignore (0),
   propagated (0),
@@ -59,6 +61,7 @@ Internal::~Internal () {
   if (tracer) delete tracer;
   if (checker) delete checker;
   if (vals) { vals -= vsize; delete [] vals; }
+  if (vals_bcp) { vals_bcp -= vsize; delete [] vals_bcp; }
 }
 
 /*------------------------------------------------------------------------*/
@@ -81,7 +84,7 @@ Internal::~Internal () {
 
 static signed char * ignore_clang_analyze_memory_leak_warning;
 
-void Internal::enlarge_vals (size_t new_vsize) {
+void Internal::enlarge_vals (signed char *& old_vals, size_t new_vsize) {
   signed char * new_vals;
   const size_t bytes = 2u * new_vsize;
   new_vals = new signed char [ bytes ]; // g++-4.8 does not like ... { 0 };
@@ -89,10 +92,10 @@ void Internal::enlarge_vals (size_t new_vsize) {
   ignore_clang_analyze_memory_leak_warning = new_vals;
   new_vals += new_vsize;
 
-  if (vals) memcpy (new_vals - max_var, vals - max_var, 2u*max_var + 1u);
-  vals -= vsize;
-  delete [] vals;
-  vals = new_vals;
+  if (old_vals) memcpy (new_vals - max_var, old_vals - max_var, 2u*max_var + 1u);
+  old_vals -= vsize;
+  delete [] old_vals;
+  old_vals = new_vals;
 }
 
 /*------------------------------------------------------------------------*/
@@ -131,7 +134,8 @@ void Internal::enlarge (int new_max_var) {
   enlarge_zero (stab, new_vsize);
   enlarge_init (ptab, 2*new_vsize, -1);
   enlarge_only (ftab, new_vsize);
-  enlarge_vals (new_vsize);
+  enlarge_vals (vals, new_vsize);
+  enlarge_vals (vals_bcp, new_vsize);
   enlarge_zero (frozentab, new_vsize);
   const signed char val = opts.phase ? 1 : -1;
   enlarge_init (phases.saved, new_vsize, val);
@@ -151,9 +155,9 @@ void Internal::init_vars (int new_max_var) {
     new_max_var - max_var, max_var + 1, new_max_var);
   if ((size_t) new_max_var >= vsize) enlarge (new_max_var);
 #ifndef NDEBUG
-  for (int64_t i = -new_max_var; i < -max_var; i++) assert (!vals[i]);
+  for (int64_t i = -new_max_var; i < -max_var; i++) assert (!vals[i])/*, assert (!vals_bcp[i])*/;
   for (unsigned i = max_var + 1; i <= (unsigned) new_max_var; i++)
-    assert (!vals[i]), assert (!btab[i]), assert (!gtab[i]);
+    assert (!vals[i]), assert (!vals_bcp[i]), assert (!btab[i]), assert (!gtab[i]);
   for (uint64_t i = 2*((uint64_t)max_var + 1);
        i <= 2*(uint64_t)new_max_var + 1;
        i++)
@@ -593,8 +597,11 @@ int Internal::solve (bool preprocess_only) {
   }
   if (!res) res = preprocess ();
   if (!preprocess_only) {
+    // Use immediate BCP at the beginning
+    bcpmode = BCPMode::IMMEDIATE;
     if (!res) res = local_search ();
     if (!res) res = lucky_phases ();
+    bcpmode = static_cast<BCPMode>(opts.bcpmode);
     if (!res) res = cdcl_loop_with_inprocessing ();
   }
   reset_solving ();

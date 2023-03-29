@@ -110,6 +110,11 @@ struct CubesWithStatus {
 /*------------------------------------------------------------------------*/
 
 struct Internal {
+  enum BCPMode {
+    IMMEDIATE  = 0,
+    DELAYED    = 1,
+    OUTOFORDER = 2,
+  };
 
   /*----------------------------------------------------------------------*/
 
@@ -141,6 +146,7 @@ struct Internal {
 
   /*----------------------------------------------------------------------*/
 
+  BCPMode bcpmode;              // currently selected BCP mode
   int mode;                     // current internal state
   bool unsat;                   // empty clause found or learned
   bool iterating;               // report learned unit ('i' line)
@@ -159,6 +165,7 @@ struct Internal {
   int level;                    // decision level ('control.size () - 1')
   Phases phases;                // saved, target and best phases
   signed char * vals;           // assignment [-max_var,max_var]
+  signed char * vals_bcp;       // soft variable assignment for delayed BCP [-max_var,max_var]
   vector<signed char> marks;    // signed marks [1,max_var]
   vector<unsigned> frozentab;   // frozen counters [1,max_var]
   vector<int> i2e;              // maps internal 'idx' to external 'lit'
@@ -166,6 +173,7 @@ struct Internal {
   Links links;                  // table of links for decision queue
   double score_inc;             // current score increment
   ScoreSchedule scores;         // score based decision priority queue
+  ScoreSchedule scores_bcp;     // score based priority queue for priority BCP
   vector<double> stab;          // table of variable scores [1,max_var]
   vector<Var> vtab;             // variable table [1,max_var]
   vector<int> parents;          // parent literals during probing
@@ -254,7 +262,7 @@ struct Internal {
 
   // Enlarge tables.
   //
-  void enlarge_vals (size_t new_vsize);
+  void enlarge_vals (signed char *& old_vals, size_t new_vsize);
   void enlarge (int new_max_var);
 
   // A variable is 'active' if it is not eliminated nor fixed.
@@ -525,11 +533,29 @@ struct Internal {
   // Forward reasoning through propagation in 'propagate.cpp'.
   //
   int assignment_level (int lit, Clause*);
-  void search_assign (int lit, Clause *);
+  void search_assign (int lit, Clause *, BCPMode bcp_mode);
   void search_assign_driving (int lit, Clause * reason);
   void search_assume_decision (int decision);
   void assign_unit (int lit);
   bool propagate ();
+
+  // Priority BCP
+  //
+  void search_enqueue            (const int idx, const int lit, BCPMode bcp_mode);
+  void search_enqueue_immediate  (const int idx, const int lit);
+  void search_enqueue_delayed    (const int idx, const int lit);
+  void search_enqueue_outoforder (const int idx, const int lit);
+
+  int search_next_lit            ();
+  int search_next_lit_immediate  ();
+  int search_next_lit_delayed    ();
+  int search_next_lit_outoforder ();
+
+  bool search_found_conflict           (const int lit);
+  bool search_found_conflict_immediate (const int lit);
+  bool search_found_conflict_delayed   (const int lit);
+
+  void search_clear_prop_queue ();
 
   // Undo and restart in 'backtrack.cpp'.
   //
@@ -1062,6 +1088,13 @@ struct Internal {
     assert (lit);
     assert (lit <= max_var);
     return vals[lit];
+  }
+
+  signed char val_bcp (int lit) const {
+    assert (-max_var <= lit);
+    assert (lit);
+    assert (lit <= max_var);
+    return vals_bcp[lit];
   }
 
   // As 'val' but restricted to the root-level value of a literal.
