@@ -128,7 +128,7 @@ inline int Internal::search_next_lit () {
     default:
     case BCPMode::IMMEDIATE  : return search_next_lit_immediate  ();
     case BCPMode::DELAYED    : return search_next_lit_delayed    ();
-    case BCPMode::OUTOFORDER : return search_next_lit_outoforder ();
+    // case BCPMode::OUTOFORDER : return search_next_lit_outoforder ();
   }
 }
 
@@ -174,8 +174,8 @@ inline int Internal::search_next_lit_outoforder () {
 inline bool Internal::search_found_conflict (const int lit) {
   switch (bcpmode) {
     default:
-    case BCPMode::IMMEDIATE  :
-    case BCPMode::OUTOFORDER : return search_found_conflict_immediate (lit);
+    // case BCPMode::OUTOFORDER :
+    case BCPMode::IMMEDIATE  : return search_found_conflict_immediate (lit);
     case BCPMode::DELAYED    : return search_found_conflict_delayed   (lit);
   }
 }

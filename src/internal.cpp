@@ -6,6 +6,13 @@ namespace CaDiCaL {
 
 Internal::Internal ()
 :
+  // Reinforcement learning for priority BCP
+  bcprl_thompson (BCPMode::NUM_MODES),
+  bcprl_lbdsum (0),
+  bcprl_prevConflicts (0),
+  bcprl_historicalScore (0),
+
+  // All other parameters
   mode (SEARCH),
   unsat (false),
   iterating (false),
@@ -598,10 +605,8 @@ int Internal::solve (bool preprocess_only) {
   if (!res) res = preprocess ();
   if (!preprocess_only) {
     // Use immediate BCP at the beginning
-    bcpmode = BCPMode::IMMEDIATE;
     if (!res) res = local_search ();
     if (!res) res = lucky_phases ();
-    bcpmode = static_cast<BCPMode>(opts.bcpmode);
     if (!res) res = cdcl_loop_with_inprocessing ();
   }
   reset_solving ();

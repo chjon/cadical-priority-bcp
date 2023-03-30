@@ -85,6 +85,7 @@ extern "C" {
 #include "score.hpp"
 #include "stats.hpp"
 #include "terminal.hpp"
+#include "thompson.hpp"
 #include "tracer.hpp"
 #include "util.hpp"
 #include "var.hpp"
@@ -113,7 +114,8 @@ struct Internal {
   enum BCPMode {
     IMMEDIATE  = 0,
     DELAYED    = 1,
-    OUTOFORDER = 2,
+    NUM_MODES  = 2,
+    OUTOFORDER = 3,
   };
 
   /*----------------------------------------------------------------------*/
@@ -147,6 +149,10 @@ struct Internal {
   /*----------------------------------------------------------------------*/
 
   BCPMode bcpmode;              // currently selected BCP mode
+  Thompson_var bcprl_thompson;  // Priority BCP RL struct
+  int64_t bcprl_lbdsum;
+  int64_t bcprl_prevConflicts;
+  double bcprl_historicalScore;
   int mode;                     // current internal state
   bool unsat;                   // empty clause found or learned
   bool iterating;               // report learned unit ('i' line)
@@ -556,6 +562,8 @@ struct Internal {
   bool search_found_conflict_delayed   (const int lit);
 
   void search_clear_prop_queue ();
+
+  void update_bcp_mode ();
 
   // Undo and restart in 'backtrack.cpp'.
   //

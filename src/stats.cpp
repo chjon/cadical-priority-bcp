@@ -53,6 +53,10 @@ void Stats::print (Internal * internal) {
   size_t extendbytes = internal->external->extension.size ();
   extendbytes *= sizeof (int);
 
+  SECTION ("bcprl statistics");
+  PRT ("immediate:       %15" PRId64 "   %10.2f %%", stats.bcprl.immediate, percent (stats.bcprl.immediate, stats.bcprl.immediate + stats.bcprl.delayed));
+  PRT ("delayed:         %15" PRId64 "   %10.2f %%", stats.bcprl.delayed, percent (stats.bcprl.delayed, stats.bcprl.immediate + stats.bcprl.delayed));
+
   SECTION ("statistics");
 
   if (all || stats.blocked) {

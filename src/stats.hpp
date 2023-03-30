@@ -219,6 +219,11 @@ struct Stats {
   int64_t active;        // number of active variables
   int64_t inactive;      // number of inactive variables
 
+  struct {
+    int64_t immediate;
+    int64_t delayed;
+  } bcprl;
+
   Stats ();
 
   void print (Internal *);

@@ -95,6 +95,30 @@ int Internal::reuse_trail () {
   return res;
 }
 
+inline void Internal::update_bcp_mode () {
+  // Compute score for the previous round, and then reset counters
+  // Option 1: LBD
+  double prevRoundScore = bcprl_lbdsum / (stats.learned.clauses - bcprl_prevConflicts);
+  bcprl_prevConflicts = stats.learned.clauses;
+  bcprl_lbdsum = 0;
+
+  // Option 2: GLR
+  // double prevRoundScore = (stats.learned.clauses - prevConflicts) / (stats.decisions - prevDecisions);
+  // bcprl_prevConflicts = stats.learned.clauses;
+  // bcprl_prevDecisions = stats.decisions;
+
+  // Update (bump and decay) reward values
+  bcprl_thompson.update_dist(bcpmode, prevRoundScore >= bcprl_historicalScore, 1e-3 * opts.bcprlbetadecay);
+
+  // Update historical score as a weighted average
+  const double DECAY_FACTOR = 1e-3 * opts.bcprlscoredecay;
+  bcprl_historicalScore = bcprl_historicalScore * DECAY_FACTOR + prevRoundScore * (1 - DECAY_FACTOR);
+
+  // Pick new BCP mode
+  bcpmode = static_cast<BCPMode>(bcprl_thompson.select_lever ());
+  (bcpmode == BCPMode::IMMEDIATE ? stats.bcprl.immediate : stats.bcprl.delayed)++;
+}
+
 void Internal::restart () {
   START (restart);
   stats.restarts++;
@@ -105,6 +129,8 @@ void Internal::restart () {
 
   lim.restart = stats.conflicts + opts.restartint;
   LOG ("new restart limit at %" PRId64 " conflicts", lim.restart);
+
+  update_bcp_mode();
 
   report ('R', 2);
   STOP (restart);
