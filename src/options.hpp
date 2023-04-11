@@ -23,6 +23,7 @@ OPTION( arena,             1,  0,  1,0,0,1, "allocate clauses in arena") \
 OPTION( arenacompact,      1,  0,  1,0,0,1, "keep clauses compact") \
 OPTION( arenasort,         1,  0,  1,0,0,1, "sort clauses in arena") \
 OPTION( arenatype,         3,  1,  3,0,0,1, "1=clause, 2=var, 3=queue") \
+OPTION( bcpratio,        5e2,  0,1e3,1,0,0, "random BCP mode selection ratio per mille") \
 OPTION( bcprlbetadecay,  5e2,  0,1e3,1,0,0, "BCP RL thompson beta decay factor per mille") \
 OPTION( bcprlscoredecay, 5e2,  0,1e3,1,0,0, "BCP RL score decay factor per mille") \
 OPTION( binary,            1,  0,  1,0,0,1, "use binary proof format") \

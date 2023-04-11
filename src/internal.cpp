@@ -8,6 +8,7 @@ Internal::Internal ()
 :
   // Reinforcement learning for priority BCP
   bcprl_thompson (BCPMode::NUM_MODES),
+  bcprandom (42),
   bcprl_lbdsum (0),
   bcprl_prevConflicts (0),
   bcprl_historicalScore (0),

@@ -95,7 +95,12 @@ int Internal::reuse_trail () {
   return res;
 }
 
-inline void Internal::update_bcp_mode () {
+inline void Internal::update_bcp_mode_random () {
+  bcpmode = (bcprandom.generate_double() < opts.bcpratio * 1e-3) ? BCPMode::DELAYED : BCPMode::IMMEDIATE;
+  (bcpmode == BCPMode::IMMEDIATE ? stats.bcprl.immediate : stats.bcprl.delayed)++;
+}
+
+inline void Internal::update_bcp_mode_rl () {
   // Compute score for the previous round, and then reset counters
   // Option 1: LBD
   double prevRoundScore = bcprl_lbdsum / (stats.learned.clauses - bcprl_prevConflicts);
@@ -130,7 +135,8 @@ void Internal::restart () {
   lim.restart = stats.conflicts + opts.restartint;
   LOG ("new restart limit at %" PRId64 " conflicts", lim.restart);
 
-  update_bcp_mode();
+  update_bcp_mode_rl();
+  // update_bcp_mode_random();
 
   report ('R', 2);
   STOP (restart);

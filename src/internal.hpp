@@ -150,6 +150,7 @@ struct Internal {
 
   BCPMode bcpmode;              // currently selected BCP mode
   Thompson_var bcprl_thompson;  // Priority BCP RL struct
+  Random bcprandom;
   int64_t bcprl_lbdsum;
   int64_t bcprl_prevConflicts;
   double bcprl_historicalScore;
@@ -563,7 +564,8 @@ struct Internal {
 
   void search_clear_prop_queue ();
 
-  void update_bcp_mode ();
+  void update_bcp_mode_random ();
+  void update_bcp_mode_rl ();
 
   // Undo and restart in 'backtrack.cpp'.
   //
