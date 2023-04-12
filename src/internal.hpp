@@ -540,25 +540,26 @@ struct Internal {
   // Forward reasoning through propagation in 'propagate.cpp'.
   //
   int assignment_level (int lit, Clause*);
-  void search_assign (int lit, Clause *, BCPMode bcp_mode);
+  template <BCPMode bcp_mode> void search_assign (int lit, Clause *);
   void search_assign_driving (int lit, Clause * reason);
   void search_assume_decision (int decision);
   void assign_unit (int lit);
   bool propagate ();
+  template <BCPMode m> bool propagate_internal ();
 
   // Priority BCP
   //
-  void search_enqueue            (const int idx, const int lit, BCPMode bcp_mode);
+  template <BCPMode bcp_mode> void search_enqueue (const int idx, const int lit);
   void search_enqueue_immediate  (const int idx, const int lit);
   void search_enqueue_delayed    (const int idx, const int lit);
   void search_enqueue_outoforder (const int idx, const int lit);
 
-  int search_next_lit            ();
+  template <BCPMode bcp_mode> int search_next_lit ();
   int search_next_lit_immediate  ();
   int search_next_lit_delayed    ();
   int search_next_lit_outoforder ();
 
-  bool search_found_conflict           (const int lit);
+  template <BCPMode bcp_mode> bool search_found_conflict (const int lit);
   bool search_found_conflict_immediate (const int lit);
   bool search_found_conflict_delayed   (const int lit);
 
