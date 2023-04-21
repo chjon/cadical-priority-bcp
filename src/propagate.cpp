@@ -88,10 +88,10 @@ inline void Internal::search_assign (int lit, Clause * reason) {
 template <Internal::BCPMode bcp_mode>
 inline void Internal::search_enqueue (const int idx, const int lit) {
   switch (bcp_mode) {
-    default:
     case BCPMode::IMMEDIATE  : return search_enqueue_immediate  (idx, lit);
     case BCPMode::DELAYED    : return search_enqueue_delayed    (idx, lit);
     case BCPMode::OUTOFORDER : return search_enqueue_outoforder (idx, lit);
+    default: __builtin_unreachable ();
   }
 }
 
@@ -128,10 +128,10 @@ inline void Internal::search_enqueue_outoforder (const int idx, const int lit) {
 template <Internal::BCPMode bcp_mode>
 inline int Internal::search_next_lit () {
   switch (bcp_mode) {
-    default:
     case BCPMode::IMMEDIATE  : return search_next_lit_immediate  ();
     case BCPMode::DELAYED    : return search_next_lit_delayed    ();
     // case BCPMode::OUTOFORDER : return search_next_lit_outoforder ();
+    default: __builtin_unreachable ();
   }
 }
 
@@ -177,10 +177,10 @@ inline int Internal::search_next_lit_outoforder () {
 template <Internal::BCPMode bcp_mode>
 inline bool Internal::search_found_conflict (const int lit) {
   switch (bcp_mode) {
-    default:
-    // case BCPMode::OUTOFORDER :
+    // case BCPMode::OUTOFORDER : // intentional case fallthrough
     case BCPMode::IMMEDIATE  : return search_found_conflict_immediate (lit);
     case BCPMode::DELAYED    : return search_found_conflict_delayed   (lit);
+    default: __builtin_unreachable ();
   }
 }
 

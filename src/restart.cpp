@@ -100,19 +100,35 @@ inline void Internal::update_bcp_mode_random () {
   (bcpmode == BCPMode::IMMEDIATE ? stats.bcprl.immediate : stats.bcprl.delayed)++;
 }
 
-inline void Internal::update_bcp_mode_rl () {
+inline double Internal::get_prev_round_score_rl () {
   // Compute score for the previous round, and then reset counters
-  // Option 1: LBD
-  double prevRoundScore = bcprl_lbdsum / (stats.learned.clauses - bcprl_prevConflicts);
-  bcprl_prevConflicts = stats.learned.clauses;
-  bcprl_lbdsum = 0;
+  constexpr int SCORE_TYPE = 1;
+  switch (SCORE_TYPE) {
+    case 1: { // LBD
+      const double prevRoundScore = bcprl_lbdsum / static_cast<double>(stats.learned.clauses - bcprl_prevConflicts);
+      bcprl_prevConflicts = stats.learned.clauses;
+      bcprl_lbdsum = 0;
+      return prevRoundScore;
+    }
+    case 2: { // GLR
+      const double prevRoundScore = (stats.learned.clauses - bcprl_prevConflicts) / static_cast<double>(stats.decisions - bcprl_prevDecisions);
+      bcprl_prevConflicts = stats.learned.clauses;
+      bcprl_prevDecisions = stats.decisions;
+      return prevRoundScore;
+    }
+    case 3: { // Propagations per decision
+      const double prevRoundScore = (stats.propagations.search - bcprl_prevPropagations) / static_cast<double>(stats.decisions - bcprl_prevDecisions);
+      bcprl_prevPropagations = stats.propagations.search;
+      bcprl_prevDecisions = stats.decisions;
+      return prevRoundScore;
+    }
+    default: __builtin_unreachable ();
+  }
+}
 
-  // Option 2: GLR
-  // double prevRoundScore = (stats.learned.clauses - prevConflicts) / (stats.decisions - prevDecisions);
-  // bcprl_prevConflicts = stats.learned.clauses;
-  // bcprl_prevDecisions = stats.decisions;
-
+inline void Internal::update_bcp_mode_rl () {
   // Update (bump and decay) reward values
+  const double prevRoundScore = get_prev_round_score_rl ();
   bcprl_thompson.update_dist(bcpmode, prevRoundScore >= bcprl_historicalScore, 1e-3 * opts.bcprlbetadecay);
 
   // Update historical score as a weighted average

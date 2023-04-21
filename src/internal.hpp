@@ -153,6 +153,8 @@ struct Internal {
   Random bcprandom;
   int64_t bcprl_lbdsum;
   int64_t bcprl_prevConflicts;
+  int64_t bcprl_prevDecisions;
+  int64_t bcprl_prevPropagations;
   double bcprl_historicalScore;
   int mode;                     // current internal state
   bool unsat;                   // empty clause found or learned
@@ -566,6 +568,7 @@ struct Internal {
   void search_clear_prop_queue ();
 
   void update_bcp_mode_random ();
+  double get_prev_round_score_rl ();
   void update_bcp_mode_rl ();
 
   // Undo and restart in 'backtrack.cpp'.

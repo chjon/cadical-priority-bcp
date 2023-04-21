@@ -11,6 +11,8 @@ Internal::Internal ()
   bcprandom (42),
   bcprl_lbdsum (0),
   bcprl_prevConflicts (0),
+  bcprl_prevDecisions (0),
+  bcprl_prevPropagations (0),
   bcprl_historicalScore (0),
 
   // All other parameters
@@ -207,6 +209,8 @@ int Internal::cdcl_loop_with_inprocessing () {
   if (stable) { START (stable);   report ('['); }
   else        { START (unstable); report ('{'); }
 
+  // bcpscorefile = fopen("bcpscores.txt", "w"); 
+
   while (!res) {
          if (unsat) res = 20;
     else if (unsat_constraint) res = 20;
@@ -226,6 +230,8 @@ int Internal::cdcl_loop_with_inprocessing () {
     else if (conditioning ()) condition ();  // globally blocked clauses
     else res = decide ();                    // next decision
   }
+
+  // fclose(bcpscorefile);
 
   if (stable) { STOP (stable);   report (']'); }
   else        { STOP (unstable); report ('}'); }
