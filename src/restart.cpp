@@ -117,10 +117,16 @@ inline double Internal::get_prev_round_score_rl () {
   }
 }
 
+// Solver configuration
+static constexpr bool                  ENABLE_RESETS       = true;
+static constexpr bool                  ENABLE_PRIORITY_BCP = true;
+static constexpr Internal::RLScoreType BCP_SCORETYPE       = Internal::RLScoreType::LBD;
+static constexpr Internal::RLScoreType RESET_SCORETYPE     = Internal::RLScoreType::GLR;
+
 inline Internal::BCPMode Internal::update_bcp_mode_rl () {
   if (stats.restarts > 1) {
     // Update (bump and decay) reward values
-    const double prevRoundScore = get_prev_round_score_rl<RLScoreType::LBD> ();
+    const double prevRoundScore = get_prev_round_score_rl<BCP_SCORETYPE> ();
     bcprl_thompson.update_dist(static_cast<size_t>(bcpmode), prevRoundScore >= bcprl_historicalScore, 1e-3 * opts.bcprlbetadecay);
 
     // Update historical score as a weighted average
@@ -137,7 +143,7 @@ inline Internal::BCPMode Internal::update_bcp_mode_rl () {
 inline Internal::RestartMode Internal::update_restart_mode_rl () {
   if (stats.restarts > 1) {
     // Update (bump and decay) reward values
-    const double prevRoundScore = get_prev_round_score_rl<RLScoreType::GLR> ();
+    const double prevRoundScore = get_prev_round_score_rl<RESET_SCORETYPE> ();
     resetrl_thompson.update_dist(static_cast<size_t>(restartmode), prevRoundScore >= resetrl_historicalScore, 1e-3 * opts.resetrlbetadecay);
 
     // Update historical score as a weighted average
@@ -161,10 +167,6 @@ inline void Internal::reset_scores () {
     scores.push_back(idx);
   }
 }
-
-// Solver configuration
-static constexpr bool ENABLE_RESETS       = true;
-static constexpr bool ENABLE_PRIORITY_BCP = true;
 
 void Internal::restart () {
   START (restart);
