@@ -99,6 +99,7 @@ struct Stats {
   int64_t stabphases;   // number of stabilization phases
   int64_t stabconflicts;// number of search conflicts during stabilizing
   int64_t rescored;     // number of times scores were rescored
+  int64_t resets;       // number of times a reset-restart was performed
   int64_t reused;       // number of reused trails
   int64_t reusedlevels; // reused levels at restart
   int64_t reusedstable; // number of reused trails during stabilizing

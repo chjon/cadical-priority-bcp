@@ -32,7 +32,7 @@ typedef struct Thompson_variable {
         for (size_t i = 0; i < num_arms; i++) prior_dists.push_back (beta_distribution (1, 1));
     }
 
-    size_t select_lever () {
+    inline size_t select_lever () {
         // Sample a random value from each prior distribution and keep track
         // of the arm with the highest sampled value.
         size_t max_i = 0;
@@ -49,7 +49,7 @@ typedef struct Thompson_variable {
         return max_i;
     }
 
-    void update_dist(unsigned int action, bool isWin, double decayFactor) {
+    inline void update_dist(unsigned int action, bool isWin, double decayFactor) {
         // Decay wins/losses
         for (size_t i = 0; i < num_arms; i++) {
             alphas[i] *= decayFactor;

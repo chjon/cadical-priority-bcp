@@ -111,11 +111,23 @@ struct CubesWithStatus {
 /*------------------------------------------------------------------------*/
 
 struct Internal {
-  enum BCPMode {
+  enum class RLScoreType {
+    LBD = 0, // Literal Block Distance
+    GLR = 1, // Global Learning Rate
+    PPD = 2, // Propagations per Decision
+  };
+
+  enum class BCPMode {
     IMMEDIATE  = 0,
     DELAYED    = 1,
     NUM_MODES  = 2,
     OUTOFORDER = 3,
+  };
+
+  enum class RestartMode {
+    RESTART   = 0,
+    RESET     = 1,
+    NUM_MODES = 2,
   };
 
   /*----------------------------------------------------------------------*/
@@ -148,14 +160,20 @@ struct Internal {
 
   /*----------------------------------------------------------------------*/
 
-  BCPMode bcpmode;              // currently selected BCP mode
-  Thompson_var bcprl_thompson;  // Priority BCP RL struct
-  Random bcprandom;
-  int64_t bcprl_lbdsum;
-  int64_t bcprl_prevConflicts;
-  int64_t bcprl_prevDecisions;
-  int64_t bcprl_prevPropagations;
+  int64_t rl_lbdsum;
+  int64_t rl_prevConflicts;
+  int64_t rl_prevDecisions;
+  int64_t rl_prevPropagations;
+  Random rl_random;
+
+  BCPMode bcpmode;                // currently selected BCP mode
+  Thompson_var bcprl_thompson;    // Priority BCP RL struct
   double bcprl_historicalScore;
+
+  RestartMode restartmode;        // Restart/reset mode
+  Thompson_var resetrl_thompson;  // Activity reset RL struct
+  double resetrl_historicalScore;
+
   int mode;                     // current internal state
   bool unsat;                   // empty clause found or learned
   bool iterating;               // report learned unit ('i' line)
@@ -567,9 +585,14 @@ struct Internal {
 
   void search_clear_prop_queue ();
 
+  void clear_scores_rl ();
+  template <RLScoreType scoretype> double get_prev_round_score_rl ();
   void update_bcp_mode_random ();
-  double get_prev_round_score_rl ();
-  void update_bcp_mode_rl ();
+  BCPMode update_bcp_mode_rl ();
+
+  // Reset restarts
+  void reset_scores ();
+  RestartMode update_restart_mode_rl ();
 
   // Undo and restart in 'backtrack.cpp'.
   //

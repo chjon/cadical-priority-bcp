@@ -6,14 +6,21 @@ namespace CaDiCaL {
 
 Internal::Internal ()
 :
+  // Reinforcement learning
+  rl_lbdsum (0),
+  rl_prevConflicts (0),
+  rl_prevDecisions (0),
+  rl_prevPropagations (0),
+  rl_random (42),
+
   // Reinforcement learning for priority BCP
-  bcprl_thompson (BCPMode::NUM_MODES),
-  bcprandom (42),
-  bcprl_lbdsum (0),
-  bcprl_prevConflicts (0),
-  bcprl_prevDecisions (0),
-  bcprl_prevPropagations (0),
+  bcprl_thompson (static_cast<size_t>(BCPMode::NUM_MODES)),
   bcprl_historicalScore (0),
+
+  // Reinforcement learning for activity resets
+  restartmode (RestartMode::RESTART),
+  resetrl_thompson (static_cast<size_t>(RestartMode::NUM_MODES)),
+  resetrl_historicalScore (0),
 
   // All other parameters
   mode (SEARCH),
