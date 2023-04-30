@@ -118,7 +118,7 @@ inline double Internal::get_prev_round_score_rl () {
 }
 
 // Solver configuration
-static constexpr bool                  ENABLE_RESETS       = true;
+static constexpr bool                  ENABLE_RESETS       = false;
 static constexpr bool                  ENABLE_PRIORITY_BCP = true;
 static constexpr Internal::RLScoreType BCP_SCORETYPE       = Internal::RLScoreType::LBD;
 static constexpr Internal::RLScoreType RESET_SCORETYPE     = Internal::RLScoreType::GLR;
