@@ -23,6 +23,9 @@ OPTION( arena,             1,  0,  1,0,0,1, "allocate clauses in arena") \
 OPTION( arenacompact,      1,  0,  1,0,0,1, "keep clauses compact") \
 OPTION( arenasort,         1,  0,  1,0,0,1, "sort clauses in arena") \
 OPTION( arenatype,         3,  1,  3,0,0,1, "1=clause, 2=var, 3=queue") \
+OPTION( bcpratio,        5e2,  0,1e3,1,0,0, "random BCP mode selection ratio per mille") \
+OPTION( bcprlbetadecay,  5e2,  0,1e3,1,0,0, "BCP RL thompson beta decay factor per mille") \
+OPTION( bcprlscoredecay, 5e2,  0,1e3,1,0,0, "BCP RL score decay factor per mille") \
 OPTION( binary,            1,  0,  1,0,0,1, "use binary proof format") \
 OPTION( block,             0,  0,  1,0,1,1, "blocked clause elimination") \
 OPTION( blockmaxclslim,  1e5,  1,2e9,2,0,1, "maximum clause size") \
@@ -128,6 +131,8 @@ OPTION( rephaseint,      1e3,  1,2e9,0,0,1, "rephase interval") \
 OPTION( report,reportdefault,  0,  1,0,0,1, "enable reporting") \
 OPTION( reportall,         0,  0,  1,0,0,1, "report even if not successful") \
 OPTION( reportsolve,       0,  0,  1,0,0,1, "use solving not process time") \
+OPTION( resetrlbetadecay,  5e2,  0,1e3,1,0,0, "Reset RL thompson beta decay factor per mille") \
+OPTION( resetrlscoredecay, 5e2,  0,1e3,1,0,0, "Reset RL score decay factor per mille") \
 OPTION( restart,           1,  0,  1,0,0,1, "enable restarts") \
 OPTION( restartint,        2,  1,2e9,0,0,1, "restart interval") \
 OPTION( restartmargin,    10,  0,1e2,0,0,1, "slow fast margin in percent") \

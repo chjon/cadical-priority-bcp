@@ -95,16 +95,102 @@ int Internal::reuse_trail () {
   return res;
 }
 
+inline void Internal::update_bcp_mode_random () {
+  bcpmode = (rl_random.generate_double() < opts.bcpratio * 1e-3) ? BCPMode::DELAYED : BCPMode::IMMEDIATE;
+  (bcpmode == BCPMode::IMMEDIATE ? stats.bcprl.immediate : stats.bcprl.delayed)++;
+}
+
+void Internal::clear_scores_rl () {
+  rl_prevConflicts    = stats.learned.clauses;
+  rl_prevPropagations = stats.propagations.search;
+  rl_prevDecisions    = stats.decisions;
+  rl_lbdsum           = 0;
+}
+
+template <Internal::RLScoreType scoretype>
+inline double Internal::get_prev_round_score_rl () {
+  switch (scoretype) {
+    case RLScoreType::LBD: return rl_lbdsum / static_cast<double>(stats.learned.clauses - rl_prevConflicts);
+    case RLScoreType::GLR: return (stats.learned.clauses - rl_prevConflicts) / static_cast<double>(stats.decisions - rl_prevDecisions);
+    case RLScoreType::PPD: return (stats.propagations.search - rl_prevPropagations) / static_cast<double>(stats.decisions - rl_prevDecisions);
+    default: __builtin_unreachable ();
+  }
+}
+
+// Solver configuration
+static constexpr bool                  ENABLE_RESETS       = false;
+static constexpr bool                  ENABLE_PRIORITY_BCP = true;
+static constexpr Internal::RLScoreType BCP_SCORETYPE       = Internal::RLScoreType::LBD;
+static constexpr Internal::RLScoreType RESET_SCORETYPE     = Internal::RLScoreType::GLR;
+
+inline Internal::BCPMode Internal::update_bcp_mode_rl () {
+  if (stats.restarts > 1) {
+    // Update (bump and decay) reward values
+    const double prevRoundScore = get_prev_round_score_rl<BCP_SCORETYPE> ();
+    bcprl_thompson.update_dist(static_cast<size_t>(bcpmode), prevRoundScore >= bcprl_historicalScore, 1e-3 * opts.bcprlbetadecay);
+
+    // Update historical score as a weighted average
+    const double DECAY_FACTOR = 1e-3 * opts.bcprlscoredecay;
+    bcprl_historicalScore = bcprl_historicalScore * DECAY_FACTOR + prevRoundScore * (1 - DECAY_FACTOR);
+  }
+
+  // Pick new BCP mode
+  bcpmode = static_cast<BCPMode>(bcprl_thompson.select_lever ());
+  (bcpmode == BCPMode::IMMEDIATE ? stats.bcprl.immediate : stats.bcprl.delayed)++;
+  return bcpmode;
+}
+
+inline Internal::RestartMode Internal::update_restart_mode_rl () {
+  if (stats.restarts > 1) {
+    // Update (bump and decay) reward values
+    const double prevRoundScore = get_prev_round_score_rl<RESET_SCORETYPE> ();
+    resetrl_thompson.update_dist(static_cast<size_t>(restartmode), prevRoundScore >= resetrl_historicalScore, 1e-3 * opts.resetrlbetadecay);
+
+    // Update historical score as a weighted average
+    const double DECAY_FACTOR = 1e-3 * opts.resetrlscoredecay;
+    resetrl_historicalScore = resetrl_historicalScore * DECAY_FACTOR + prevRoundScore * (1 - DECAY_FACTOR);
+  }
+
+  // Pick whether to perform a reset
+  restartmode = static_cast<RestartMode>(resetrl_thompson.select_lever ());
+  if (restartmode == RestartMode::RESET) stats.resets++;
+  return restartmode;
+}
+
+inline void Internal::reset_scores () {
+  constexpr double SCALE_FACTOR = 1e-3;
+  assert (!level);
+
+  scores.clear();
+  for (int idx = max_var; idx; idx--) {
+    stab[idx] = rl_random.generate_double() * SCALE_FACTOR;
+    scores.push_back(idx);
+  }
+}
+
 void Internal::restart () {
   START (restart);
   stats.restarts++;
   stats.restartlevels += level;
   if (stable) stats.restartstable++;
   LOG ("restart %" PRId64 "", stats.restarts);
-  backtrack (reuse_trail ());
+
+  // Check if we should reset
+  if (ENABLE_RESETS && update_restart_mode_rl () == RestartMode::RESET) {
+    backtrack (0);
+    reset_scores ();
+  } else {
+    backtrack (reuse_trail ());
+  }
 
   lim.restart = stats.conflicts + opts.restartint;
   LOG ("new restart limit at %" PRId64 " conflicts", lim.restart);
+
+  // Pick the next BCP mode
+  if (ENABLE_PRIORITY_BCP) update_bcp_mode_rl ();
+  // update_bcp_mode_random ();
+
+  if (ENABLE_RESETS || ENABLE_PRIORITY_BCP) clear_scores_rl ();
 
   report ('R', 2);
   STOP (restart);

@@ -85,6 +85,7 @@ extern "C" {
 #include "score.hpp"
 #include "stats.hpp"
 #include "terminal.hpp"
+#include "thompson.hpp"
 #include "tracer.hpp"
 #include "util.hpp"
 #include "var.hpp"
@@ -110,6 +111,24 @@ struct CubesWithStatus {
 /*------------------------------------------------------------------------*/
 
 struct Internal {
+  enum class RLScoreType {
+    LBD = 0, // Literal Block Distance
+    GLR = 1, // Global Learning Rate
+    PPD = 2, // Propagations per Decision
+  };
+
+  enum class BCPMode {
+    IMMEDIATE  = 0,
+    DELAYED    = 1,
+    NUM_MODES  = 2,
+    OUTOFORDER = 3,
+  };
+
+  enum class RestartMode {
+    RESTART   = 0,
+    RESET     = 1,
+    NUM_MODES = 2,
+  };
 
   /*----------------------------------------------------------------------*/
 
@@ -141,6 +160,20 @@ struct Internal {
 
   /*----------------------------------------------------------------------*/
 
+  int64_t rl_lbdsum;
+  int64_t rl_prevConflicts;
+  int64_t rl_prevDecisions;
+  int64_t rl_prevPropagations;
+  Random rl_random;
+
+  BCPMode bcpmode;                // currently selected BCP mode
+  Thompson_var bcprl_thompson;    // Priority BCP RL struct
+  double bcprl_historicalScore;
+
+  RestartMode restartmode;        // Restart/reset mode
+  Thompson_var resetrl_thompson;  // Activity reset RL struct
+  double resetrl_historicalScore;
+
   int mode;                     // current internal state
   bool unsat;                   // empty clause found or learned
   bool iterating;               // report learned unit ('i' line)
@@ -159,6 +192,7 @@ struct Internal {
   int level;                    // decision level ('control.size () - 1')
   Phases phases;                // saved, target and best phases
   signed char * vals;           // assignment [-max_var,max_var]
+  signed char * vals_bcp;       // soft variable assignment for delayed BCP [-max_var,max_var]
   vector<signed char> marks;    // signed marks [1,max_var]
   vector<unsigned> frozentab;   // frozen counters [1,max_var]
   vector<int> i2e;              // maps internal 'idx' to external 'lit'
@@ -166,6 +200,7 @@ struct Internal {
   Links links;                  // table of links for decision queue
   double score_inc;             // current score increment
   ScoreSchedule scores;         // score based decision priority queue
+  ScoreSchedule scores_bcp;     // score based priority queue for priority BCP
   vector<double> stab;          // table of variable scores [1,max_var]
   vector<Var> vtab;             // variable table [1,max_var]
   vector<int> parents;          // parent literals during probing
@@ -254,7 +289,7 @@ struct Internal {
 
   // Enlarge tables.
   //
-  void enlarge_vals (size_t new_vsize);
+  void enlarge_vals (signed char *& old_vals, size_t new_vsize);
   void enlarge (int new_max_var);
 
   // A variable is 'active' if it is not eliminated nor fixed.
@@ -525,11 +560,39 @@ struct Internal {
   // Forward reasoning through propagation in 'propagate.cpp'.
   //
   int assignment_level (int lit, Clause*);
-  void search_assign (int lit, Clause *);
+  template <BCPMode bcp_mode> void search_assign (int lit, Clause *);
   void search_assign_driving (int lit, Clause * reason);
   void search_assume_decision (int decision);
   void assign_unit (int lit);
   bool propagate ();
+  template <BCPMode m> bool propagate_internal ();
+
+  // Priority BCP
+  //
+  template <BCPMode bcp_mode> void search_enqueue (const int idx, const int lit);
+  void search_enqueue_immediate  (const int idx, const int lit);
+  void search_enqueue_delayed    (const int idx, const int lit);
+  void search_enqueue_outoforder (const int idx, const int lit);
+
+  template <BCPMode bcp_mode> int search_next_lit ();
+  int search_next_lit_immediate  ();
+  int search_next_lit_delayed    ();
+  int search_next_lit_outoforder ();
+
+  template <BCPMode bcp_mode> bool search_found_conflict (const int lit);
+  bool search_found_conflict_immediate (const int lit);
+  bool search_found_conflict_delayed   (const int lit);
+
+  void search_clear_prop_queue ();
+
+  void clear_scores_rl ();
+  template <RLScoreType scoretype> double get_prev_round_score_rl ();
+  void update_bcp_mode_random ();
+  BCPMode update_bcp_mode_rl ();
+
+  // Reset restarts
+  void reset_scores ();
+  RestartMode update_restart_mode_rl ();
 
   // Undo and restart in 'backtrack.cpp'.
   //
@@ -1062,6 +1125,13 @@ struct Internal {
     assert (lit);
     assert (lit <= max_var);
     return vals[lit];
+  }
+
+  signed char val_bcp (int lit) const {
+    assert (-max_var <= lit);
+    assert (lit);
+    assert (lit <= max_var);
+    return vals_bcp[lit];
   }
 
   // As 'val' but restricted to the root-level value of a literal.

@@ -46,10 +46,10 @@ inline int Internal::assignment_level (int lit, Clause * reason) {
 
 /*------------------------------------------------------------------------*/
 
+template <Internal::BCPMode bcp_mode>
 inline void Internal::search_assign (int lit, Clause * reason) {
 
   if (level) require_mode (SEARCH);
-
   const int idx = vidx (lit);
   assert (!vals[idx]);
   assert (!flags (idx).eliminated () || reason == decision_reason);
@@ -66,17 +66,11 @@ inline void Internal::search_assign (int lit, Clause * reason) {
   if (!lit_level) reason = 0;
 
   v.level = lit_level;
-  v.trail = (int) trail.size ();
   v.reason = reason;
   if (!lit_level) learn_unit_clause (lit);  // increases 'stats.fixed'
-  const signed char tmp = sign (lit);
-  vals[idx] = tmp;
-  vals[-idx] = -tmp;
-  assert (val (lit) > 0);
-  assert (val (-lit) < 0);
+  search_enqueue<bcp_mode> (idx, lit);
   if (!searching_lucky_phases)
-    phases.saved[idx] = tmp;                // phase saving during search
-  trail.push_back (lit);
+    phases.saved[idx] = sign (lit);                // phase saving during search
 #ifdef LOGGING
   if (!lit_level) LOG ("root-level unit assign %d @ 0", lit);
   else LOG (reason, "search assign %d @ %d", lit, lit_level);
@@ -91,6 +85,123 @@ inline void Internal::search_assign (int lit, Clause * reason) {
   }
 }
 
+template <Internal::BCPMode bcp_mode>
+inline void Internal::search_enqueue (const int idx, const int lit) {
+  switch (bcp_mode) {
+    case BCPMode::IMMEDIATE  : return search_enqueue_immediate  (idx, lit);
+    case BCPMode::DELAYED    : return search_enqueue_delayed    (idx, lit);
+    case BCPMode::OUTOFORDER : return search_enqueue_outoforder (idx, lit);
+    default: __builtin_unreachable ();
+  }
+}
+
+inline void Internal::search_enqueue_immediate (const int idx, const int lit) {
+  var (idx).trail = (int) trail.size ();
+  const signed char tmp = sign (lit);
+  vals[idx] = tmp;
+  vals[-idx] = -tmp;
+  assert (val (lit) > 0);
+  assert (val (-lit) < 0);
+  trail.push_back (lit);
+}
+
+inline void Internal::search_enqueue_delayed (const int idx, const int lit) {
+  const signed char tmp = sign (lit);
+  vals_bcp[idx] = tmp;
+  vals_bcp[-idx] = -tmp;
+  assert (val_bcp (lit) > 0);
+  assert (val_bcp (-lit) < 0);
+  scores_bcp.push_back (idx);
+}
+
+inline void Internal::search_enqueue_outoforder (const int idx, const int lit) {
+  var (idx).trail = (int) trail.size ();
+  const signed char tmp = sign (lit);
+  vals[idx] = tmp;
+  vals[-idx] = -tmp;
+  assert (val (lit) > 0);
+  assert (val (-lit) < 0);
+  trail.push_back (lit);
+  scores_bcp.push_back (idx);
+}
+
+template <Internal::BCPMode bcp_mode>
+inline int Internal::search_next_lit () {
+  switch (bcp_mode) {
+    case BCPMode::IMMEDIATE  : return search_next_lit_immediate  ();
+    case BCPMode::DELAYED    : return search_next_lit_delayed    ();
+    // case BCPMode::OUTOFORDER : return search_next_lit_outoforder ();
+    default: __builtin_unreachable ();
+  }
+}
+
+inline int Internal::search_next_lit_immediate () {
+  if (propagated == trail.size ()) return 0;
+  return -trail[propagated++];
+}
+
+inline int Internal::search_next_lit_delayed () {
+  if (propagated < trail.size ()) return -trail[propagated++];
+
+  if (scores_bcp.empty ()) return 0;
+  const int idx = scores_bcp.front ();
+  scores_bcp.pop_front ();
+
+  var (idx).trail = (int) trail.size ();
+  vals[idx] = vals_bcp[idx];
+  vals[-idx] = vals_bcp[-idx];
+  vals_bcp[idx] = vals_bcp[-idx] = 0;
+
+  const int lit = idx * vals[idx];
+  assert (val (lit) > 0);
+  assert (val (-lit) < 0);
+  trail.push_back (lit);
+
+  propagated++;
+  return -lit;
+}
+
+inline int Internal::search_next_lit_outoforder () {
+  if (scores_bcp.empty ()) {
+    if (propagated < trail.size ()) return -trail[propagated++];
+    return 0;
+  }
+  const int idx = scores_bcp.front ();
+  scores_bcp.pop_front ();
+
+  propagated++;
+  const int lit = idx * vals[idx];
+  return -lit;
+}
+
+template <Internal::BCPMode bcp_mode>
+inline bool Internal::search_found_conflict (const int lit) {
+  switch (bcp_mode) {
+    // case BCPMode::OUTOFORDER : // intentional case fallthrough
+    case BCPMode::IMMEDIATE  : return search_found_conflict_immediate (lit);
+    case BCPMode::DELAYED    : return search_found_conflict_delayed   (lit);
+    default: __builtin_unreachable ();
+  }
+}
+
+inline bool Internal::search_found_conflict_immediate (const int lit) {
+  return val (lit) < 0;
+}
+
+inline bool Internal::search_found_conflict_delayed (const int lit) {
+  if (val (lit) < 0) return true;
+  if (val_bcp (lit) >= 0) return false;
+  assert (scores_bcp.contains (vidx (lit)));
+  search_enqueue_immediate(vidx (lit), -lit);
+  return true;
+}
+
+inline void Internal::search_clear_prop_queue () {
+  propagated = trail.size ();
+  for (int idx : scores_bcp) vals_bcp[idx] = vals_bcp[-idx] = 0;
+  scores_bcp.clear ();
+}
+
 /*------------------------------------------------------------------------*/
 
 // External versions of 'search_assign' which are not inlined.  They either
@@ -101,7 +212,7 @@ inline void Internal::search_assign (int lit, Clause * reason) {
 
 void Internal::assign_unit (int lit) {
   assert (!level);
-  search_assign (lit, 0);
+  search_assign<BCPMode::IMMEDIATE> (lit, 0);
 }
 
 // Just assume the given literal as decision (increase decision level and
@@ -113,12 +224,12 @@ void Internal::search_assume_decision (int lit) {
   level++;
   control.push_back (Level (lit, trail.size ()));
   LOG ("search decide %d", lit);
-  search_assign (lit, decision_reason);
+  search_assign<BCPMode::IMMEDIATE> (lit, decision_reason);
 }
 
 void Internal::search_assign_driving (int lit, Clause * c) {
   require_mode (SEARCH);
-  search_assign (lit, c);
+  search_assign<BCPMode::IMMEDIATE> (lit, c);
 }
 
 /*------------------------------------------------------------------------*/
@@ -140,21 +251,16 @@ void Internal::search_assign_driving (int lit, Clause * c) {
 // propagation costs (2013 JAIR article by Ian Gent) at the expense of four
 // more bytes for each clause.
 
-bool Internal::propagate () {
-
-  if (level) require_mode (SEARCH);
-  assert (!unsat);
-
-  START (propagate);
-
+template <Internal::BCPMode bcp_mode>
+inline bool Internal::propagate_internal () {
   // Updating statistics counter in the propagation loops is costly so we
   // delay until propagation ran to completion.
   //
   int64_t before = propagated;
 
-  while (!conflict && propagated != trail.size ()) {
+  for (int nextlit = search_next_lit<bcp_mode>(); !conflict && nextlit != 0; nextlit = search_next_lit<bcp_mode>()) {
 
-    const int lit = -trail[propagated++];
+    const int lit = nextlit;
     LOG ("propagating %d", -lit);
     Watches & ws = watches (lit);
 
@@ -165,9 +271,8 @@ bool Internal::propagate () {
     while (i != eow) {
 
       const Watch w = *j++ = *i++;
-      const signed char b = val (w.blit);
 
-      if (b > 0) continue;                // blocking literal satisfied
+      if (val (w.blit) > 0 || (bcp_mode == BCPMode::DELAYED && val_bcp (w.blit) > 0)) continue; // blocking literal satisfied
 
       if (w.binary ()) {
 
@@ -196,8 +301,8 @@ bool Internal::propagate () {
         // to access the clause at all (only during conflict analysis, and
         // there also only to simplify the code).
 
-        if (b < 0) conflict = w.clause;          // but continue ...
-        else search_assign (w.blit, w.clause);
+        if (search_found_conflict<bcp_mode> (w.blit)) conflict = w.clause; // but continue ...
+        else search_assign<bcp_mode> (w.blit, w.clause);
 
       } else {
 
@@ -224,7 +329,7 @@ bool Internal::propagate () {
         const int other = lits[0] ^ lits[1] ^ lit;
         const signed char u = val (other); // value of the other watch
 
-        if (u > 0) j[-1].blit = other; // satisfied, just replace blit
+        if (u > 0 || (bcp_mode == BCPMode::DELAYED && val_bcp (other) > 0)) j[-1].blit = other; // satisfied, just replace blit
         else {
 
           // This follows Ian Gent's (JAIR'13) idea of saving the position
@@ -280,14 +385,14 @@ bool Internal::propagate () {
 
             j--;  // Drop this watch from the watch list of 'lit'.
 
-          } else if (!u) {
+          } else if (!u && !search_found_conflict<bcp_mode> (other)) {
 
             assert (v < 0);
 
             // The other watch is unassigned ('!u') and all other literals
             // assigned to false (still 'v < 0'), thus we found a unit.
             //
-            search_assign (other, w.clause);
+            search_assign<bcp_mode> (other, w.clause);
 
             // Similar code is in the implementation of the SAT'18 paper on
             // chronological backtracking but in our experience, this code
@@ -327,7 +432,7 @@ bool Internal::propagate () {
             }
           } else {
 
-            assert (u < 0);
+            assert (u < 0 || val_bcp (other) < 0);
             assert (v < 0);
 
             // The other watch is assigned false ('u < 0') and all other
@@ -374,9 +479,29 @@ bool Internal::propagate () {
     }
   }
 
-  STOP (propagate);
+  if (bcp_mode == BCPMode::DELAYED || bcp_mode == BCPMode::OUTOFORDER) search_clear_prop_queue ();
 
   return !conflict;
+}
+
+bool Internal::propagate () {
+
+  if (level) require_mode (SEARCH);
+  assert (!unsat);
+
+  START (propagate);
+
+  bool result = true;
+  switch (bcpmode) {
+    default:
+    case BCPMode::IMMEDIATE  : { result = propagate_internal<BCPMode::IMMEDIATE>  (); break; }
+    case BCPMode::DELAYED    : { result = propagate_internal<BCPMode::DELAYED>    (); break; }
+    // case BCPMode::OUTOFORDER : { result = propagate_internal<BCPMode::OUTOFORDER> (); break; }
+  }
+
+  STOP (propagate);
+
+  return result;
 }
 
 }
