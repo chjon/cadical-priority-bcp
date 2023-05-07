@@ -152,6 +152,29 @@ struct Mapper {
 
 /*------------------------------------------------------------------------*/
 
+template <class Mapper, class ScoreType, class ScoreTable>
+static inline void remap_scores (Mapper& mapper, ScoreType& scores, ScoreTable& stab) {
+  vector<int> saved;
+  assert (saved.empty ());
+  if (!scores.empty ()) {
+    while (!scores.empty ()) {
+      const int src = scores.front ();
+      scores.pop_front ();
+      const int dst = mapper.map_idx (src);
+      if (!dst) continue;
+      if (src == mapper.first_fixed) continue;
+      saved.push_back (dst);
+    }
+    scores.erase ();
+  }
+  mapper.map_vector (stab);
+  if (!saved.empty ()) {
+    for (const auto idx : saved)
+      scores.push_back (idx);
+    scores.shrink ();
+  }
+}
+
 static signed char * ignore_clang_analyze_memory_leak_warning;
 
 void Internal::compact () {
@@ -382,25 +405,8 @@ void Internal::compact () {
   // pretty complicated and would require that the 'Heap' knows that mapped
   // elements with 'zero' destination should be flushed.
 
-  vector<int> saved;
-  assert (saved.empty ());
-  if (!scores.empty ()) {
-    while (!scores.empty ()) {
-      const int src = scores.front ();
-      scores.pop_front ();
-      const int dst = mapper.map_idx (src);
-      if (!dst) continue;
-      if (src == mapper.first_fixed) continue;
-      saved.push_back (dst);
-    }
-    scores.erase ();
-  }
-  mapper.map_vector (stab);
-  if (!saved.empty ()) {
-    for (const auto idx : saved)
-      scores.push_back (idx);
-    scores.shrink ();
-  }
+  remap_scores (mapper, scores, stab);
+  remap_scores (mapper, scores_bcp, stab);
 
   /*----------------------------------------------------------------------*/
 
