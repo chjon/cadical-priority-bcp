@@ -149,6 +149,7 @@ void Internal::enlarge (int new_max_var) {
   enlarge_zero (btab, new_vsize);
   enlarge_zero (gtab, new_vsize);
   enlarge_zero (stab, new_vsize);
+  enlarge_zero (stab_bcp, new_vsize);
   enlarge_init (ptab, 2*new_vsize, -1);
   enlarge_only (ftab, new_vsize);
   enlarge_vals (vals, new_vsize);

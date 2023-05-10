@@ -1,6 +1,14 @@
 #ifndef _internal_hpp_INCLUDED
 #define _internal_hpp_INCLUDED
 
+#define PBCP_ORDER_BRANCHING 0
+#define PBCP_ORDER_RANDOM 1
+
+// Solver configuration
+#define PBCP_ORDER PBCP_ORDER_BRANCHING
+#define ENABLE_RESETS false
+#define ENABLE_PRIORITY_BCP true
+
 /*------------------------------------------------------------------------*/
 
 // Wrapped build specific headers which should go first.
@@ -200,8 +208,13 @@ struct Internal {
   Links links;                  // table of links for decision queue
   double score_inc;             // current score increment
   ScoreSchedule scores;         // score based decision priority queue
+#if PBCP_ORDER == PBCP_ORDER_BRANCHING
   ScoreSchedule scores_bcp;     // score based priority queue for priority BCP
+#else
+  ScoreScheduleBCP scores_bcp;  // score based priority queue for priority BCP
+#endif
   vector<double> stab;          // table of variable scores [1,max_var]
+  vector<double> stab_bcp;      // table of variable scores [1,max_var]
   vector<Var> vtab;             // variable table [1,max_var]
   vector<int> parents;          // parent literals during probing
   vector<Flags> ftab;           // variable and literal flags
@@ -1315,6 +1328,23 @@ inline bool score_smaller::operator () (unsigned a, unsigned b) {
   assert (b <= (unsigned) internal->max_var);
   double s = internal->stab[a];
   double t = internal->stab[b];
+
+  if (s < t) return true;
+  if (s > t) return false;
+
+  return a > b;
+}
+
+inline bool score_smaller_bcp::operator () (unsigned a, unsigned b) {
+
+  // Avoid computing twice 'abs' in 'score ()'.
+  //
+  assert (1 <= a);
+  assert (a <= (unsigned) internal->max_var);
+  assert (1 <= b);
+  assert (b <= (unsigned) internal->max_var);
+  double s = internal->stab_bcp[a];
+  double t = internal->stab_bcp[b];
 
   if (s < t) return true;
   if (s > t) return false;

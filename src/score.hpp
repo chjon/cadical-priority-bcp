@@ -9,7 +9,14 @@ struct score_smaller {
   bool operator () (unsigned a, unsigned b);
 };
 
+struct score_smaller_bcp {
+  Internal * internal;
+  score_smaller_bcp (Internal * i) : internal (i) { }
+  bool operator () (unsigned a, unsigned b);
+};
+
 typedef heap<score_smaller> ScoreSchedule;
+typedef heap<score_smaller_bcp> ScoreScheduleBCP;
 
 }
 

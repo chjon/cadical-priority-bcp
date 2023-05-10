@@ -118,8 +118,6 @@ inline double Internal::get_prev_round_score_rl () {
 }
 
 // Solver configuration
-static constexpr bool                  ENABLE_RESETS       = false;
-static constexpr bool                  ENABLE_PRIORITY_BCP = true;
 static constexpr Internal::RLScoreType BCP_SCORETYPE       = Internal::RLScoreType::LBD;
 static constexpr Internal::RLScoreType RESET_SCORETYPE     = Internal::RLScoreType::GLR;
 
@@ -185,6 +183,11 @@ void Internal::restart () {
 
   lim.restart = stats.conflicts + opts.restartint;
   LOG ("new restart limit at %" PRId64 " conflicts", lim.restart);
+
+  // Update BCP scores for randomized priority order
+#if PBCP_ORDER == PBCP_ORDER_RANDOM
+  for (int idx = max_var; idx; idx--) stab_bcp[idx] = rl_random.generate_double();
+#endif
 
   // Pick the next BCP mode
   if (ENABLE_PRIORITY_BCP) update_bcp_mode_rl ();

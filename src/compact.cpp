@@ -406,7 +406,11 @@ void Internal::compact () {
   // elements with 'zero' destination should be flushed.
 
   remap_scores (mapper, scores, stab);
+#if PBCP_ORDER == PBCP_ORDER_BRANCHING
   remap_scores (mapper, scores_bcp, stab);
+#else
+  remap_scores (mapper, scores_bcp, stab_bcp);
+#endif
 
   /*----------------------------------------------------------------------*/
 
