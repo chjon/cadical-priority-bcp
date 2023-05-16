@@ -8,6 +8,7 @@
 #define PBCP_ORDER PBCP_ORDER_BRANCHING
 #define ENABLE_RESETS false
 #define ENABLE_PRIORITY_BCP true
+#define ENABLE_PRIORITY_BCP_RL false
 
 /*------------------------------------------------------------------------*/
 
