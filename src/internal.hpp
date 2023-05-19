@@ -7,8 +7,9 @@
 // Solver configuration
 #define PBCP_ORDER PBCP_ORDER_BRANCHING
 #define ENABLE_RESETS false
-#define ENABLE_PRIORITY_BCP true
-#define ENABLE_PRIORITY_BCP_RL false
+#define ENABLE_PRIORITY_BCP false
+#define ENABLE_PRIORITY_BCP_RL true
+#define ENABLE_PRIORITY_BCP_RANDOM false
 
 /*------------------------------------------------------------------------*/
 
