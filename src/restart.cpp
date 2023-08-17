@@ -193,12 +193,12 @@ void Internal::restart () {
 #endif
 
   // Pick the next BCP mode
-  if (ENABLE_PRIORITY_BCP_RL) update_bcp_mode_rl (); 
-  else if (ENABLE_PRIORITY_BCP) bcpmode = BCPMode::DELAYED;
-  else if (ENABLE_PRIORITY_BCP_RANDOM) update_bcp_mode_random ();
+  if (ENABLE_PBCP_RL) update_bcp_mode_rl (); 
+  else if (ENABLE_PBCP) bcpmode = BCPMode::DELAYED;
+  else if (ENABLE_PBCP_RANDOM) update_bcp_mode_random ();
   (bcpmode == BCPMode::IMMEDIATE ? stats.bcprl.immediate : stats.bcprl.delayed)++;
 
-  if (ENABLE_RESETS || ENABLE_PRIORITY_BCP) clear_scores_rl ();
+  if (ENABLE_RESETS || ENABLE_PBCP) clear_scores_rl ();
 
   report ('R', 2);
   STOP (restart);
