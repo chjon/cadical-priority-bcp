@@ -174,7 +174,11 @@ void Internal::restart () {
 
   // Check if we should reset
   if (ENABLE_RESETS && update_restart_mode_rl () == RestartMode::RESET) {
-    backtrack (0);
+    const int trivial_decisions = assumptions.size ()
+      // Plus 1 if the constraint is satisfied via implications of assumptions
+      // and a pseudo-decision level was introduced
+      + !control[assumptions.size () + 1].decision;
+    backtrack (trivial_decisions);
     reset_scores ();
   } else {
     backtrack (reuse_trail ());
